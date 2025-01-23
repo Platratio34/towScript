@@ -24,7 +24,7 @@ RegisterKeyMapping("+tow.retract", "Retract tow cable", "keyboard", "NUMPAD7")
 RegisterCommand("+tow.retract", function() retracting = true end)
 RegisterCommand("-tow.retract", function() retracting = false end)
 local loosening = false
-RegisterKeyMapping("+tow.lossen", "Lossen tow cable", "keyboard", "NUMPAD4")
+RegisterKeyMapping("+tow.lossen", "Loosen tow cable", "keyboard", "NUMPAD4")
 RegisterCommand("+tow.lossen", function() loosening = true end)
 RegisterCommand("-tow.lossen", function() loosening = false end)
 
@@ -65,7 +65,7 @@ local function attach(src, trg, bone)
 end
 
 local lretract, lloosen = false, false
-local function prossesTruck(trk)
+local function processTruck(trk)
     ---@cast trk TowTruck
     local pid = GetPlayerServerId(PlayerId())
     if trk.holder ~= pid then
@@ -90,7 +90,7 @@ local function prossesTruck(trk)
     local isVic = trk.other.netid > 0
     if trk.other.active then
         local truck = NetworkGetEntityFromNetworkId(trk.netid)
-        local car ---@type entity
+        local car ---@type Entity
         if isVic then
             print(trk.other.netid, trk.other.pos)
             car = NetworkGetEntityFromNetworkId(trk.other.netid)
@@ -167,7 +167,7 @@ local function prossesTruck(trk)
             end
             if loosening then
                 trk.length = math.min(trk.length + 0.05, trk.maxLength)
-                -- SendMsg('Increassing line length to '..line)
+                -- SendMsg('Increasing line length to '..line)
             end
             if isVic then
                 if trk.vicData.attachable and IsControlJustPressed(0, 201) and trk.dist < 1 and (not trk.point) then
@@ -185,14 +185,8 @@ local function prossesTruck(trk)
                 SetVehicleHandbrake(truck, false)
             end
             if trk.length < trk.dist and trk.dist <= 50 then
-                -- print('Thinging')
-                -- print(dir)
-                -- local force = 10
-                -- if trk.retracting then
-                --     force = 25
-                -- end
                 local force = calcForce(trk.length, trk.dist) / 20
-                -- print('Appling '..math.floor(force)..' N')
+                -- print('Applying '..math.floor(force)..' N')
                 -- TriggerServerEvent(Config.events.force, remoteData.netid, force)
                 local winchPosL = GetOffsetFromEntityGivenWorldCoords(truck, origin)
                 if isVic then
@@ -241,7 +235,7 @@ end
 Citizen.CreateThread(function()
     while true do
         if isRemote and remoteData then
-            prossesTruck(remoteData)
+            processTruck(remoteData)
             DrawText(0.4, 0.05, round(remoteData.dist) .. ' / ' .. round(remoteData.length), 255, 255, 255, 255)
             if remoteData.other.active then
                 DrawText(0.4, 0.10, 'Numpad 7 Retract | Numpad 4 Extend', 255, 255, 255, 255)
