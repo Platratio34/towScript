@@ -1,0 +1,127 @@
+local vic = 0
+local vicData = nil
+local vic2 = 0
+local c = {
+    color = { r = 230, g = 230, b = 230, a = 255 }, -- Text color
+    font = 0, -- Text font
+    scale = 0.5, -- Text scale
+}
+
+RegisterCommand('towgetvic', function(source, args, raw)
+    local id = CanControl(GetPlayerPed(-1))
+    if id <= 0 then
+        SendMsg('Look at a vehicle')
+        return
+    end
+    if Config.allowedCars[GetEntityModel(id)] then
+        vic = id
+        vicData = Config.allowedCars[GetEntityModel(id)]
+        SendMsg('Vic set')
+    else
+        SendMsg('Not valid vehicle for tow truck')
+    end
+end)
+RegisterCommand('towgetvic2', function(source, args, raw)
+    local id = CanControl(GetPlayerPed(-1))
+    if id <= 0 then
+        SendMsg('Look at a vehicle')
+        return
+    end
+    vic2 = id
+    SendMsg('Vic2 set')
+end)
+
+
+local function draw3dText(coords, text)
+    local camCoords = GetGameplayCamCoord()
+    local dist = #(coords - camCoords)
+
+    -- Experimental math to scale the text down
+    local scale = 200 / (GetGameplayCamFov() * dist)
+
+    -- Format the text
+    SetTextColour(c.color.r, c.color.g, c.color.b, c.color.a)
+    SetTextScale(0.0, c.scale * scale)
+    SetTextFont(c.font)
+    SetTextDropshadow(0, 0, 0, 0, 55)
+    SetTextDropShadow()
+    SetTextCentre(true)
+
+    -- Diplay the text
+    BeginTextCommandDisplayText("STRING")
+    AddTextComponentSubstringPlayerName(text)
+    SetDrawOrigin(coords, 0)
+    EndTextCommandDisplayText(0.0, 0.0)
+    ClearDrawOrigin()
+end
+
+local function attach(src, trg, bone)
+    local sPos = GetEntityCoords(src)
+    -- local posOff = GetOffsetFromEntityGivenWorldCoords(trg, sPos.x, sPos.y, sPos.z)
+    local tPos = GetWorldPositionOfEntityBone(trg, bone)
+    local posOff = sPos - tPos
+    local rotDiff = GetEntityRotation(src) - GetEntityBoneRotation(trg, bone)
+    print(GetEntityRotation(src), GetEntityBoneRotation(trg, bone), rotDiff)
+
+    local vehicleHeightMin, vehicleHeightMax = GetModelDimensions(GetEntityModel(src))
+    AttachEntityToEntity(src, trg, bone, 0, 0.0, 0.05 - vehicleHeightMin.z, 0, 0, 0, 1, 1, 1, 1, 0, 1)
+    -- AttachEntityToEntity(src, trg, bone, posOff.x, posOff.y, posOff.z, rotDiff.x, rotDiff.y, rotDiff.z, false, false, true, false, 0, true)
+end
+
+Citizen.CreateThread(function()
+
+    local line = -1
+    local attached = false
+    while true do
+        if vic ~= 0 and vic2 ~= 0 then
+            if not attached then
+                local origin = GetWorldPositionOfEntityBone(vic, vicData.originBone)
+                local carPos = GetEntityCoords(vic2)
+                DrawLine(origin.x, origin.y, origin.z, carPos.x, carPos.y, carPos.z, 128, 128, 128, 255)
+
+                local diff = origin - carPos
+                local dist = #diff
+                if line < 0 then
+                    line = dist
+                    line = math.max(line, 2)
+                    line = math.min(line, 50)
+                end
+                local dir = diff / dist
+            
+                if IsControlPressed(0, 118) then
+                    if line >= dist - 0.1 then
+                        line = math.max(line - 0.1, 2)
+                    end
+                    -- SendMsg('Reducing line length to ' .. line)
+                    line = math.min(line, dist)
+                    ApplyForceToEntity(vic2, 0, dir * 20, vector3(0.0, 0.0, 0.0), 0, false, true, true, false, true)
+                end
+                if IsControlPressed(0, 123) then
+                    line = math.min(line + 0.1, 50)
+                    -- SendMsg('Increassing line length to '..line)
+                end
+                if IsControlJustPressed(0, 201) and dist < 3.5 then
+                    attach(vic2, vic, vicData.attachBone)
+                    -- AttachEntityBoneToEntityBone(vic2, vic, 0, vicData.attachBone, true, true)
+                    SendMsg('Attached')
+                    attached = true
+                    line = -1
+                end
+
+                if line < dist and dist <= 50 then
+                    print('Thinging')
+                    print(dir)
+                    ApplyForceToEntity(vic2, 0, dir * 10, vector3(0.0, 0.0, 0.0), 0, false, true, true, false, true)
+                    -- ApplyForceToEntityCenterOfMass(vic2, 4, dir*10, false, false ,false, )
+                end
+                SetVehicleBrake(vic2, false)
+                DrawText(0.3, 0.05, line..'/'..dist, 255, 255, 255, 255)
+            elseif IsControlJustPressed(0, 201) then
+                DetachEntity(vic2, true, true)
+                attached = false
+            end
+        end
+        Citizen.Wait(0)
+    end
+    
+end)
